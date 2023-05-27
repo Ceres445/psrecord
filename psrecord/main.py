@@ -23,8 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import (unicode_literals, division, print_function,
-                        absolute_import)
+from __future__ import unicode_literals, division, print_function, absolute_import
 
 import time
 import argparse
@@ -38,6 +37,10 @@ def get_percent(process):
 
 def get_memory(process):
     return process.memory_info()
+
+
+def get_io(process):
+    return process.io_counters()
 
 
 def all_children(pr):
@@ -59,31 +62,39 @@ def all_children(pr):
 def main():
 
     parser = argparse.ArgumentParser(
-        description='Record CPU and memory usage for a process')
+        description="Record CPU and memory usage for a process"
+    )
 
-    parser.add_argument('process_id_or_command', type=str,
-                        help='the process id or command')
+    parser.add_argument(
+        "process_id_or_command", type=str, help="the process id or command"
+    )
 
-    parser.add_argument('--log', type=str,
-                        help='output the statistics to a file')
+    parser.add_argument("--log", type=str, help="output the statistics to a file")
 
-    parser.add_argument('--plot', type=str,
-                        help='output the statistics to a plot')
+    parser.add_argument("--plot", type=str, help="output the statistics to a plot")
 
-    parser.add_argument('--duration', type=float,
-                        help='how long to record for (in seconds). If not '
-                             'specified, the recording is continuous until '
-                             'the job exits.')
+    parser.add_argument(
+        "--duration",
+        type=float,
+        help="how long to record for (in seconds). If not "
+        "specified, the recording is continuous until "
+        "the job exits.",
+    )
 
-    parser.add_argument('--interval', type=float,
-                        help='how long to wait between each sample (in '
-                             'seconds). By default the process is sampled '
-                             'as often as possible.')
+    parser.add_argument(
+        "--interval",
+        type=float,
+        help="how long to wait between each sample (in "
+        "seconds). By default the process is sampled "
+        "as often as possible.",
+    )
 
-    parser.add_argument('--include-children',
-                        help='include sub-processes in statistics (results '
-                             'in a slower maximum sampling rate).',
-                        action='store_true')
+    parser.add_argument(
+        "--include-children",
+        help="include sub-processes in statistics (results "
+        "in a slower maximum sampling rate).",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
@@ -94,25 +105,34 @@ def main():
         sprocess = None
     except Exception:
         import subprocess
+
         command = args.process_id_or_command
-        print("Starting up command '{0}' and attaching to process"
-              .format(command))
+        print("Starting up command '{0}' and attaching to process".format(command))
         sprocess = subprocess.Popen(command, shell=True)
         pid = sprocess.pid
 
-    monitor(pid, logfile=args.log, plot=args.plot, duration=args.duration,
-            interval=args.interval, include_children=args.include_children)
+    monitor(
+        pid,
+        logfile=args.log,
+        plot=args.plot,
+        duration=args.duration,
+        interval=args.interval,
+        include_children=args.include_children,
+    )
 
     if sprocess is not None:
         sprocess.kill()
 
 
-def monitor(pid, logfile=None, plot=None, duration=None, interval=None,
-            include_children=False):
+def monitor(
+    pid, logfile=None, plot=None, duration=None, interval=None, include_children=False
+):
 
     # We import psutil here so that the module can be imported even if psutil
     # is not present (for example if accessing the version)
     import psutil
+
+    # import scapy
 
     pr = psutil.Process(pid)
 
@@ -120,19 +140,25 @@ def monitor(pid, logfile=None, plot=None, duration=None, interval=None,
     start_time = time.time()
 
     if logfile:
-        f = open(logfile, 'w')
-        f.write("# {0:12s} {1:12s} {2:12s} {3:12s}\n".format(
-            'Elapsed time'.center(12),
-            'CPU (%)'.center(12),
-            'Real (MB)'.center(12),
-            'Virtual (MB)'.center(12))
+        f = open(logfile, "w")
+        f.write(
+            "# {0:12s} {1:12s} {2:12s} {3:12s} {4:12s} {5:12s}\n".format(
+                "Elapsed time".center(12),
+                "CPU (%)".center(12),
+                "Real (MB)".center(12),
+                "Virtual (MB)".center(12),
+                "IO Read (MB)".center(12),
+                "IO Write (MB)".center(12),
+            )
         )
 
     log = {}
-    log['times'] = []
-    log['cpu'] = []
-    log['mem_real'] = []
-    log['mem_virtual'] = []
+    log["times"] = []
+    log["cpu"] = []
+    log["mem_real"] = []
+    log["mem_virtual"] = []
+    log["io_read"] = []
+    log["io_write"] = []
 
     try:
 
@@ -151,8 +177,11 @@ def monitor(pid, logfile=None, plot=None, duration=None, interval=None,
 
             # Check if process status indicates we should exit
             if pr_status in [psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD]:
-                print("Process finished ({0:.2f} seconds)"
-                      .format(current_time - start_time))
+                print(
+                    "Process finished ({0:.2f} seconds)".format(
+                        current_time - start_time
+                    )
+                )
                 break
 
             # Check if we have reached the maximum time
@@ -163,28 +192,38 @@ def monitor(pid, logfile=None, plot=None, duration=None, interval=None,
             try:
                 current_cpu = get_percent(pr)
                 current_mem = get_memory(pr)
+                current_io = get_io(pr)
             except Exception:
                 break
-            current_mem_real = current_mem.rss / 1024. ** 2
-            current_mem_virtual = current_mem.vms / 1024. ** 2
-
+            current_mem_real = current_mem.rss / 1024.0**2
+            current_mem_virtual = current_mem.vms / 1024.0**2
+            current_io_read = current_io.read_bytes
+            current_io_write = current_io.write_bytes
             # Get information for children
             if include_children:
                 for child in all_children(pr):
                     try:
                         current_cpu += get_percent(child)
                         current_mem = get_memory(child)
+                        current_io = get_io(child)
                     except Exception:
                         continue
-                    current_mem_real += current_mem.rss / 1024. ** 2
-                    current_mem_virtual += current_mem.vms / 1024. ** 2
+                    current_mem_real += current_mem.rss / 1024.0**2
+                    current_mem_virtual += current_mem.vms / 1024.0**2
+                    current_io_read += current_io.read_bytes
+                    current_io_write += current_io.write_bytes
 
             if logfile:
-                f.write("{0:12.3f} {1:12.3f} {2:12.3f} {3:12.3f}\n".format(
-                    current_time - start_time,
-                    current_cpu,
-                    current_mem_real,
-                    current_mem_virtual))
+                f.write(
+                    "{0:12.3f} {1:12.3f} {2:12.3f} {3:12.3f} {4:12.3f} {5:12.3f}\n".format(
+                        current_time - start_time,
+                        current_cpu,
+                        current_mem_real,
+                        current_mem_virtual,
+                        current_io_read,
+                        current_io_write,
+                    )
+                )
                 f.flush()
 
             if interval is not None:
@@ -192,10 +231,12 @@ def monitor(pid, logfile=None, plot=None, duration=None, interval=None,
 
             # If plotting, record the values
             if plot:
-                log['times'].append(current_time - start_time)
-                log['cpu'].append(current_cpu)
-                log['mem_real'].append(current_mem_real)
-                log['mem_virtual'].append(current_mem_virtual)
+                log["times"].append(current_time - start_time)
+                log["cpu"].append(current_cpu)
+                log["mem_real"].append(current_mem_real)
+                log["mem_virtual"].append(current_mem_virtual)
+                log["io_read"].append(current_io_read)
+                log["io_write"].append(current_io_write)
 
     except KeyboardInterrupt:  # pragma: no cover
         pass
@@ -207,24 +248,36 @@ def monitor(pid, logfile=None, plot=None, duration=None, interval=None,
 
         # Use non-interactive backend, to enable operation on headless machines
         import matplotlib.pyplot as plt
-        with plt.rc_context({'backend': 'Agg'}):
 
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1, 1)
+        with plt.rc_context({"backend": "Agg"}):
 
-            ax.plot(log['times'], log['cpu'], '-', lw=1, color='r')
+            # Add three separate plots for cpu, memory, and io
 
-            ax.set_ylabel('CPU (%)', color='r')
-            ax.set_xlabel('time (s)')
-            ax.set_ylim(0., max(log['cpu']) * 1.2)
+            fig, [cpu_ax, mem_ax, io_ax] = plt.subplots(1, 3, figsize=(16, 5))
 
-            ax2 = ax.twinx()
+            cpu_ax.plot(log["times"], log["cpu"], "-", lw=1, color="r")
 
-            ax2.plot(log['times'], log['mem_real'], '-', lw=1, color='b')
-            ax2.set_ylim(0., max(log['mem_real']) * 1.2)
+            cpu_ax.set_ylabel("CPU (%)", color="r")
+            cpu_ax.set_xlabel("time (s)")
+            cpu_ax.set_ylim(0.0, max(log["cpu"]) * 1.2)
 
-            ax2.set_ylabel('Real Memory (MB)', color='b')
+            mem_ax.plot(log["times"], log["mem_real"], "-", lw=1, color="b")
+            mem_ax.set_ylim(0.0, max(log["mem_real"]) * 1.2)
 
-            ax.grid()
+            mem_ax.set_ylabel("Real Memory (MB)", color="b")
+            mem_vir = mem_ax.twinx()
+            mem_vir.plot(log["times"], log["mem_virtual"], "-", lw=1, color="g")
+            mem_vir.set_ylim(0.0, max(log["mem_virtual"]) * 1.2)
+            mem_vir.set_ylabel("Virtual Memory (MB)", color="g")
+
+            # ax.grid()
+
+            io_ax.plot(log["times"], log["io_read"], "-", lw=1, color="b")
+            io_ax.set_ylim(0.0, max(log["io_read"]) * 1.2)
+            io_ax.set_ylabel("IO Read (MB)", color="b")
+            io_wri = io_ax.twinx()
+            io_wri.plot(log["times"], log["io_write"], "-", lw=1, color="g")
+            io_wri.set_ylim(0.0, max(log["io_write"]) * 1.2)
+            io_wri.set_ylabel("IO Write (MB)", color="g")
 
             fig.savefig(plot)
