@@ -24,5 +24,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from .main import main  # noqa
+from .network import log_network
 
-__version__ = '1.4.dev0'
+__version__ = "1.4.dev0"

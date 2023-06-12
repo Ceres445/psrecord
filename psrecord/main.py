@@ -24,9 +24,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import unicode_literals, division, print_function, absolute_import
+import subprocess
 
 import time
 import argparse
+import numpy as np
 
 children = []
 
@@ -139,6 +141,9 @@ def monitor(
     # Record start time
     start_time = time.time()
 
+    if logfile is None:
+        logfile = "psrecord_{0}.log".format(pid)
+
     if logfile:
         f = open(logfile, "w")
         f.write(
@@ -159,6 +164,17 @@ def monitor(
     log["mem_virtual"] = []
     log["io_read"] = []
     log["io_write"] = []
+
+    # Start a new thread to log the network data
+
+    from threading import Thread
+    from psrecord import log_network
+
+    network_log = logfile.replace(".log", "_network.log")
+
+    t = Thread(target=log_network, args=(duration, network_log))
+    t.setDaemon(True)
+    t.start()
 
     try:
 
@@ -253,7 +269,10 @@ def monitor(
 
             # Add three separate plots for cpu, memory, and io
 
-            fig, [cpu_ax, mem_ax, io_ax] = plt.subplots(1, 3, figsize=(16, 5))
+            fig, [[cpu_ax, mem_ax], [io_ax, net_ax]] = plt.subplots(
+                2, 2, figsize=(16, 16)
+            )
+            plt.subplots_adjust(wspace=0.4)
 
             cpu_ax.plot(log["times"], log["cpu"], "-", lw=1, color="r")
 
@@ -279,5 +298,17 @@ def monitor(
             io_wri.plot(log["times"], log["io_write"], "-", lw=1, color="g")
             io_wri.set_ylim(0.0, max(log["io_write"]) * 1.2)
             io_wri.set_ylabel("IO Write (MB)", color="g")
+
+            with open(network_log, "r") as f:
+                network_data = f.readlines()[1:]
+            network_data = [line.split() for line in network_data]
+            network_data = np.array(network_data, dtype=float)
+            net_ax.plot(network_data[:, 0], network_data[:, 1], "-", lw=1, color="b")
+            net_down = net_ax.twinx()
+            net_down.plot(network_data[:, 0], network_data[:, 2], "-", lw=1, color="g")
+            net_ax.set_ylabel("Network Upload (MB)", color="b")
+            net_ax.set_ylim(0.0, max(network_data[:, 1]) * 1.2)
+            net_down.set_ylim(0.0, max(network_data[:, 2]) * 1.2)
+            net_down.set_ylabel("Network Download (MB)", color="g")
 
             fig.savefig(plot)
