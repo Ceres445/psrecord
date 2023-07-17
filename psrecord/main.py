@@ -46,7 +46,6 @@ def get_io(process):
 
 
 def all_children(pr):
-
     global children
 
     try:
@@ -62,9 +61,8 @@ def all_children(pr):
 
 
 def main():
-
     parser = argparse.ArgumentParser(
-        description="Record CPU and memory usage for a process"
+        description="Record CPU and memory usage for a process Extended by Ceres"
     )
 
     parser.add_argument(
@@ -129,7 +127,6 @@ def main():
 def monitor(
     pid, logfile=None, plot=None, duration=None, interval=None, include_children=False
 ):
-
     # We import psutil here so that the module can be imported even if psutil
     # is not present (for example if accessing the version)
     import psutil
@@ -177,10 +174,8 @@ def monitor(
     t.start()
 
     try:
-
         # Start main event loop
         while True:
-
             # Find current time
             current_time = time.time()
 
@@ -261,12 +256,10 @@ def monitor(
         f.close()
 
     if plot:
-
         # Use non-interactive backend, to enable operation on headless machines
         import matplotlib.pyplot as plt
 
         with plt.rc_context({"backend": "Agg"}):
-
             # Add three separate plots for cpu, memory, and io
 
             fig, [[cpu_ax, mem_ax], [io_ax, net_ax]] = plt.subplots(
