@@ -44,7 +44,7 @@ setup(name='psrecord',
       packages=['psrecord', 'psrecord.tests'],
       provides=['psrecord'],
       scripts=['scripts/psrecord'],
-      install_requires=['psutil>=2'],
+      install_requires=['psutil>=2', 'numpy>=1.25.0'],
       cmdclass={'build_py': build_py},
       classifiers=[
                    "Development Status :: 3 - Alpha",
