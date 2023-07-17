@@ -19,22 +19,23 @@ def log_network(duration: Optional[int] = None, logfile: str = "network"):
             )
         )
 
-        with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
-            start_time = time.time()
-            for line in p.stdout:
-                if "python" in line:
-                    for match in reg.findall(line):
-                        up, down = map(int, match.split("/"))
-                        # print(up, down)
+    with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+        start_time = time.time()
+        for line in p.stdout:
+            if "python" in line:
+                for match in reg.findall(line):
+                    up, down = map(int, match.split("/"))
+                    # print(up, down)
+                    with open(logfile, "a") as f:
                         f.write(
                             "{0:12.3f} {1:12.3f} {2:12.3f} \n".format(
                                 time.time() - start_time, up, down
                             )
                         )
-                        # f.flush()
-                if duration is not None and time.time() - start_time > duration:
-                    p.terminate()
-                    break
+                    # f.flush()
+            if duration is not None and time.time() - start_time > duration:
+                p.terminate()
+                break
 
 
 
