@@ -28,7 +28,6 @@ import subprocess
 
 import time
 import argparse
-import numpy as np
 
 children = []
 
@@ -295,13 +294,16 @@ def monitor(
             with open(network_log, "r") as f:
                 network_data = f.readlines()[1:]
             network_data = [line.split() for line in network_data]
-            network_data = np.array(network_data, dtype=float)
-            net_ax.plot(network_data[:, 0], network_data[:, 1], "-", lw=1, color="b")
+            times, upload, download = zip(*network_data)
+            times = list(map( lambda x: float(x) - start_time, times))
+            upload = list(map(float, upload))
+            download = list(map(float, download))
+            net_ax.plot(times, upload, "-", lw=1, color="b")
             net_down = net_ax.twinx()
-            net_down.plot(network_data[:, 0], network_data[:, 2], "-", lw=1, color="g")
+            net_down.plot(times, download, "-", lw=1, color="g")
             net_ax.set_ylabel("Network Upload (MB)", color="b")
-            net_ax.set_ylim(0.0, max(network_data[:, 1]) * 1.2)
-            net_down.set_ylim(0.0, max(network_data[:, 2]) * 1.2)
+            net_ax.set_ylim(0.0, max(upload) * 1.2)
+            net_down.set_ylim(0.0, max(download) * 1.2)
             net_down.set_ylabel("Network Download (MB)", color="g")
 
             fig.savefig(plot)
