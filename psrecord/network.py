@@ -1,14 +1,21 @@
+import os
 from subprocess import Popen, PIPE, CalledProcessError
 import time
 import re
 from typing import Optional
 
 
+def is_root():
+    return os.geteuid() == 0
+
 def log_network(duration: Optional[int] = None, logfile: str = "network"):
 
     reg = re.compile(r"\d+\/\d+")
 
-    cmd = "sudo bandwhich -trp".split()
+    if not is_root():
+        cmd = "sudo bandwhich -trp".split()
+    else:
+        cmd = "bandwhich -trp".split()
 
     with open(logfile,  "w") as f:
         f.write(
